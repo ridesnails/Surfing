@@ -35,7 +35,7 @@ is_oneplus_coloros16() {
     [ "$(getprop ro.product.brand)" != "OnePlus" ] && return 1
 
     local version
-    version=$(getprop ro.build.version.oplusos)
+    version=$(getprop ro.build.version.oplusos 2>/dev/null)
 
     case "$version" in
         16*|ColorOS16* ) return 0 ;;
@@ -46,20 +46,31 @@ is_oneplus_coloros16() {
 delete_op_coloros16_fw_rules() {
     is_oneplus_coloros16 || return 0
 
-    local KEYWORDS="rmnet+ wlan+"
-    for chain in fw_INPUT fw_OUTPUT; do
-        iptables -t filter -nL "$chain" >/dev/null 2>&1 || continue
+    local KEYWORDS="rmnet wlan"
+    local CHAINS="fw_INPUT fw_OUTPUT"
+    local PROTOS="ipv4 ipv6"
 
-        for keyword in $KEYWORDS; do
-            local lines
-            lines=$(iptables -t filter -nL "$chain" --line-numbers \
-                    | grep "$keyword" \
-                    | grep "DROP" \
-                    | awk '{print $1}' \
-                    | sort -rn)
+    for proto in $PROTOS; do
+        case "$proto" in
+            ipv4) cmd="iptables" ;;
+            ipv6) cmd="ip6tables" ;;
+        esac
 
-            for line in $lines; do
-                iptables -t filter -D "$chain" "$line" 2>/dev/null
+        for chain in $CHAINS; do
+            $cmd -t filter -nL "$chain" >/dev/null 2>&1 || continue
+
+            for keyword in $KEYWORDS; do
+                local lines
+                lines=$($cmd -t filter -nL "$chain" --line-numbers 2>/dev/null \
+                        | grep "$keyword" \
+                        | grep "DROP" \
+                        | awk '{print $1}' \
+                        | sort -rn)
+
+                for line in $lines; do
+                    [ -n "$line" ] && [ "$line" -gt 0 ] || continue
+                    $cmd -t filter -D "$chain" "$line" 2>/dev/null
+                done
             done
         done
     done
