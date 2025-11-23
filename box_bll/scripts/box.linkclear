@@ -6,7 +6,8 @@ LOG_FILE="${LOG_DIR}/linkclear.log"
 PID_DIR="/dev/tmp"
 PID_FILE="${PID_DIR}/linkclear.pid"
 SLEEP_PID_FILE="${PID_DIR}/linkclear.sleep.pid"
-CONFIG_FILE="${SCRIPTS_DIR}/box.config"
+BOX_CONFIG="${SCRIPTS_DIR}/box.config"
+CLASH_CONFIG="/data/adb/box_bll/clash/config.yaml"
 
 mkdir -p "$LOG_DIR"
 
@@ -16,7 +17,7 @@ log() {
 
 echo $$ > "$PID_FILE"
 
-[ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
+[ -f "$BOX_CONFIG" ] && source "$BOX_CONFIG"
 INTERVAL_ENABLED=$(echo "$interval_enabled" | tr -d '"')
 INTERVAL_RAW=$(echo "$clean_interval" | tr -d '"')
 
@@ -38,8 +39,14 @@ parse_interval() {
 
 INTERVAL=$(parse_interval "$INTERVAL_RAW")
 
+LOCALHOST=${LOCALHOST:-127.0.0.1}
+
+PORT=$(grep -E '^\s*external-controller:' "$CLASH_CONFIG" | awk -F: '{print $NF}' | tr -d ' ')
+
+[ -z "$PORT" ] && PORT=9090
+
 while true; do
-    curl -s -X POST http://127.0.0.1:9090/restart -d '{}' >/dev/null 2>&1
+    curl -s -X DELETE "http://${LOCALHOST}:$PORT/connections" >/dev/null 2>&1
     sleep "$INTERVAL" &
     echo $! > "$SLEEP_PID_FILE"
     wait $!
