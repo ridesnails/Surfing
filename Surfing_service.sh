@@ -64,3 +64,4 @@ delete_op_coloros16_fw_rules() {
         done
     done
 }
+delete_op_coloros16_fw_rules
