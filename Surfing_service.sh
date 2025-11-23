@@ -46,7 +46,6 @@ is_oneplus_coloros16() {
 delete_op_coloros16_fw_rules() {
     is_oneplus_coloros16 || return 0
 
-    local KEYWORDS="rmnet wlan"
     local CHAINS="fw_INPUT fw_OUTPUT"
     local PROTOS="ipv4 ipv6"
 
@@ -59,18 +58,15 @@ delete_op_coloros16_fw_rules() {
         for chain in $CHAINS; do
             $cmd -t filter -nL "$chain" >/dev/null 2>&1 || continue
 
-            for keyword in $KEYWORDS; do
-                local lines
-                lines=$($cmd -t filter -nL "$chain" --line-numbers 2>/dev/null \
-                        | grep "$keyword" \
-                        | grep "DROP" \
-                        | awk '{print $1}' \
-                        | sort -rn)
+            local lines
+            lines=$($cmd -t filter -nL "$chain" --line-numbers 2>/dev/null \
+                    | grep "REJECT" \
+                    | awk '{print $1}' \
+                    | sort -rn)
 
-                for line in $lines; do
-                    [ -n "$line" ] && [ "$line" -gt 0 ] || continue
-                    $cmd -t filter -D "$chain" "$line" 2>/dev/null
-                done
+            for line in $lines; do
+                [ -n "$line" ] && [ "$line" -gt 0 ] || continue
+                $cmd -t filter -D "$chain" "$line" 2>/dev/null
             done
         done
     done
