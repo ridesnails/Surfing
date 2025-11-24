@@ -31,21 +31,32 @@ done
 inotifyd ${SCRIPTS_DIR}/net.inotify "$NET_DIR" > /dev/null 2>&1 &
 inotifyd ${SCRIPTS_DIR}/ctr.inotify /data/misc/net/rt_tables > /dev/null 2>&1 &
 
-is_oneplus_coloros16() {
-    [ "$(getprop ro.product.brand)" != "OnePlus" ] && return 1
-
-    local version
-    version=$(getprop ro.build.version.oplusos 2>/dev/null)
-
-    case "$version" in
-        16*|ColorOS16* ) return 0 ;;
-        * ) return 1 ;;
+is_coloros16() {
+    local brand=$(getprop ro.product.brand | tr '[:upper:]' '[:lower:]')
+    local oplus_ver=$(getprop ro.build.version.oplusos 2>/dev/null)
+    local rom_ver=$(getprop ro.rom.version 2>/dev/null)
+    local oplus_alt=$(getprop ro.oplus.version 2>/dev/null)
+    case "$brand" in
+        oppo|oneplus|realme|oplus)
+            ;;
+        *)
+            return 1 ;;
     esac
+    case "$oplus_ver" in
+        16*|ColorOS16*|OPlusOS16*) return 0 ;;
+    esac
+    case "$rom_ver" in
+        *16.*|*ColorOS*16*) return 0 ;;
+    esac
+    case "$oplus_alt" in
+        16*|*16.*) return 0 ;;
+    esac
+    return 1
 }
-
 delete_op_coloros16_fw_rules() {
-    is_oneplus_coloros16 || return 0
-
+    is_coloros16 || return 0
+    
+    sleep 60
     local CHAINS="fw_INPUT fw_OUTPUT"
     local PROTOS="ipv4 ipv6"
 
@@ -63,7 +74,6 @@ delete_op_coloros16_fw_rules() {
                     | grep "REJECT" \
                     | awk '{print $1}' \
                     | sort -rn)
-
             for line in $lines; do
                 [ -n "$line" ] && [ "$line" -gt 0 ] || continue
                 $cmd -t filter -D "$chain" "$line" 2>/dev/null
